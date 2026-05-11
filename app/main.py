@@ -9,6 +9,9 @@ from app.auth import router as auth_router
 from app.medical import router as medical_router
 from app.logging_config import logger
 from app.init_db import init_db
+from app.auth import limiter, RateLimitExceeded 
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 
 load_dotenv()
 
@@ -18,6 +21,10 @@ init_db()
 
 # 1. СОЗДАЁМ ПРИЛОЖЕНИЕ
 app = FastAPI(title="Healthcare MVP")
+
+from app.auth import limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # 2. MIDDLEWARE ДЛЯ ЗАЩИТЫ ОТ БОЛЬШИХ ЗАПРОСОВ
 class SizeLimitMiddleware(BaseHTTPMiddleware):
@@ -67,6 +74,10 @@ def report_page(request: Request):
 @app.get("/users")
 def users_page(request: Request):
     return templates.TemplateResponse("users.html", {"request": request})
+
+@app.get("/export")
+def export_page(request: Request):
+    return templates.TemplateResponse("export.html", {"request": request})
 
 # 6. MIDDLEWARE ДЛЯ ЛОГИРОВАНИЯ ЗАПРОСОВ
 @app.middleware("http")

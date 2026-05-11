@@ -272,13 +272,20 @@ def sanitize_csv_field(value):
     return value
 
 @router.get("/export/csv")
-def export_csv(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
+def export_appointments_csv(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin"))
+):
     appointments = db.query(Appointment).all()
     output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["id", "patient_id", "doctor_id", "reason"])
-    for a in appointments:
-        writer.writerow([a.id, a.patient_id, a.doctor_id, a.reason])
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(["id", "patient_id", "doctor_id", "appointment_date", "appointment_time", "reason", "status"])
+    for apt in appointments:
+        writer.writerow([
+            apt.id, apt.patient_id, apt.doctor_id,
+            apt.appointment_date, apt.appointment_time,
+            sanitize_csv_field(apt.reason), apt.status
+        ])
     response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = "attachment; filename=appointments.csv"
     return response
