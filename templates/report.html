@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отчёт по пациенту — Healthcare MVP</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="card">
+    <div class="card-header">
+        <h2>📊 Отчёт по пациенту</h2>
+        <p>Полная история приёмов и назначений</p>
+    </div>
+    <div class="card-body">
+        <div style="background: #f8fef9; border-radius: 24px; padding: 20px; margin-bottom: 24px;">
+            <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+                <div style="flex: 2; min-width: 150px;">
+                    <label>ID пациента</label>
+                    <input type="number" id="patientId" placeholder="Например: 1" style="width: 100%;">
+                </div>
+                <button id="loadReportBtn" class="btn btn-primary" style="margin-bottom: 2px;">Показать отчёт</button>
+            </div>
+        </div>
+
+        <div id="reportContent" style="display: none;">
+            <h3 id="patientName" style="margin-bottom: 20px; color: #1e4a2f;"></h3>
+            
+            <h4 style="margin: 20px 0 12px 0;">🩺 Приёмы</h4>
+            <div id="appointmentsList" style="display: flex; flex-direction: column; gap: 16px;"></div>
+
+            <h4 style="margin: 30px 0 12px 0;">📋 Назначения</h4>
+            <div id="recordsList" style="display: flex; flex-direction: column; gap: 16px;"></div>
+        </div>
+
+        <div id="errorMessage" style="display: none; color: #d32f2f; background: #ffe6e5; padding: 16px; border-radius: 24px; margin-bottom: 20px;"></div>
+
+        <div style="margin-top: 30px;"><a href="/dashboard" class="btn btn-outline">← На главную</a></div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('access_token');
+    if (!token) window.location.href = '/login';
+
+    // Проверка роли (только доктор или админ могут смотреть отчёты)
+    let payload = null;
+    try { payload = JSON.parse(atob(token.split('.')[1])); } catch(e) {}
+    if (!payload || (payload.role !== 'doctor' && payload.role !== 'admin')) {
+        alert('Доступ запрещён. Только для врачей и администраторов.');
+        window.location.href = '/dashboard';
+    }
+
+    async function loadReport() {
+        const patientId = document.getElementById('patientId').value;
+        if (!patientId) {
+            alert('Введите ID пациента');
+            return;
+        }
+        const url = `/api/medical/reports/patient/${patientId}`;
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('reportContent').style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('patientName').innerHTML = `👤 Пациент: ${data.patient_name} (ID ${data.patient_id})`;
+
+            // Приёмы в виде карточек
+            const appointmentsDiv = document.getElementById('appointmentsList');
+            if (data.appointments && data.appointments.length) {
+                appointmentsDiv.innerHTML = data.appointments.map(apt => `
+                    <div class="record-card">
+                        <div class="record-title">
+                            <span>🩺 Приём #${apt.id}</span>
+                            <span style="background: #e8f0fe; padding: 4px 12px; border-radius: 30px;">${apt.status}</span>
+                        </div>
+                        <div><strong>Дата:</strong> ${apt.appointment_date} ${apt.appointment_time}</div>
+                        <div><strong>Причина:</strong> ${apt.reason}</div>
+                    </div>
+                `).join('');
+            } else {
+                appointmentsDiv.innerHTML = '<p>Нет приёмов.</p>';
+            }
+
+            // Назначения в виде карточек
+            const recordsDiv = document.getElementById('recordsList');
+            if (data.medical_records && data.medical_records.length) {
+                recordsDiv.innerHTML = data.medical_records.map(rec => `
+                    <div class="record-card">
+                        <div class="record-title">
+                            <span>📄 Назначение #${rec.id}</span>
+                            <span>${new Date(rec.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div><strong>Диагноз:</strong> ${rec.diagnosis}</div>
+                        <div><strong>Лечение:</strong> ${rec.treatment}</div>
+                        <div><strong>Рецепт:</strong> ${rec.prescription || '—'}</div>
+                    </div>
+                `).join('');
+            } else {
+                recordsDiv.innerHTML = '<p>Нет назначений.</p>';
+            }
+        } else {
+            const err = await response.json();
+            document.getElementById('reportContent').style.display = 'none';
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.innerText = '❌ ' + (err.detail || 'Пациент не найден или ошибка доступа');
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    document.getElementById('loadReportBtn').onclick = loadReport;
+</script>
+</body>
+</html>

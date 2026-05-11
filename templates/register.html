@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Регистрация - Healthcare MVP</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Регистрация</h2>
+        <form id="registerForm">
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="email" name="email" placeholder="Email" required>
+            <input type="text" name="full_name" placeholder="Полное имя" required>
+            <input type="password" name="password" placeholder="Пароль (мин. 8 символов, 1 заглавная, 1 цифра, спецсимвол)" required>
+            <select name="role" required>
+                <option value="patient">Пациент</option>
+                <option value="doctor">Врач</option>
+                <option value="admin">Администратор</option>
+            </select>
+            <button type="submit">Зарегистрироваться</button>
+        </form>
+        <div id="result"></div>
+        <p>Уже есть аккаунт? <a href="/login">Войти</a></p>
+    </div>
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (response.ok) {
+                document.getElementById('result').innerHTML = '<span class="success">Регистрация успешна! <a href="/login">Войти</a></span>';
+            } else {
+                document.getElementById('result').innerHTML = '<span class="error">' + (result.detail || 'Ошибка') + '</span>';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthcare MVP - {% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        nav a { margin-right: 10px; }
+        .error { color: red; }
+        .success { color: green; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style> -->
+</head>
+<body>
+    <nav>
+        {% if request.url.path != '/login' and request.url.path != '/register' %}
+            <a href="/dashboard">Dashboard</a>
+            <a href="/appointments">Appointments</a>
+            <a href="/records">Medical Records</a>
+            <button id="logoutBtn">Logout</button>
+        {% endif %}
+    </nav>
+    <hr>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <script>
+        // Общая функция для получения токена
+        function getToken() {
+            return localStorage.getItem('access_token');
+        }
+
+        // Проверка авторизации и перенаправление на /login если нет токена
+        function checkAuth() {
+            const token = getToken();
+            const currentPath = window.location.pathname;
+            if (!token && currentPath !== '/login' && currentPath !== '/register') {
+                window.location.href = '/login';
+            }
+        }
+        checkAuth();
+
+        // Обработчик logout
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                localStorage.removeItem('access_token');
+                window.location.href = '/login';
+            });
+        }
+
+        // Универсальная функция для fetch с авторизацией
+        async function apiRequest(url, options = {}) {
+            const token = getToken();
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            const response = await fetch(url, { ...options, headers });
+            if (response.status === 401) {
+                localStorage.removeItem('access_token');
+                window.location.href = '/login';
+                throw new Error('Unauthorized');
+            }
+            return response;
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

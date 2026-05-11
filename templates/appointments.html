@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Приёмы - Healthcare MVP</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="card">
+    <div class="card-header">
+        <h2>📅 Приёмы</h2>
+        <p>Просмотр и управление записями на приём</p>
+    </div>
+    <div class="card-body">
+        <div id="createSection" style="display: none; margin-bottom: 2rem;">
+            <div style="background: #f8fef9; padding: 1.5rem; border-radius: 1.5rem;">
+                <h3 style="margin-bottom: 1rem;">➕ Новый приём</h3>
+                <form id="appointmentForm">
+                    <div class="form-group"><label>ID пациента</label><input type="number" name="patient_id" required></div>
+                    <div class="form-group"><label>ID врача</label><input type="number" name="doctor_id" required></div>
+                    <div class="form-group"><label>Дата</label><input type="date" name="appointment_date" required></div>
+                    <div class="form-group"><label>Время</label><input type="time" name="appointment_time" required></div>
+                    <div class="form-group"><label>Причина</label><input type="text" name="reason" required></div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="recordsContainer" class="records-grid"></div>
+
+        <div class="pagination">
+            <button id="prevBtn" disabled>← Назад</button>
+            <span class="current-page" id="pageInfo">Страница 1</span>
+            <button id="nextBtn">Вперёд →</button>
+        </div>
+        <div style="margin-top: 1.5rem;"><a href="/dashboard" class="btn btn-outline">← На главную</a></div>
+    </div>
+</div>
+<script>
+    const token = localStorage.getItem('access_token');
+    if (!token) window.location.href = '/login';
+
+    let currentSkip = 0;
+    const limit = 6;
+    let payload = null;
+
+    try {
+        payload = JSON.parse(atob(token.split('.')[1]));
+    } catch(e) { window.location.href = '/login'; }
+
+    if (payload && (payload.role === 'doctor' || payload.role === 'admin')) {
+        document.getElementById('createSection').style.display = 'block';
+    }
+
+    async function loadAppointments() {
+        const url = `/api/medical/appointments?skip=${currentSkip}&limit=${limit}`;
+        const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await resp.json();
+        const container = document.getElementById('recordsContainer');
+        if (!Array.isArray(data)) return;
+        if (data.length === 0 && currentSkip === 0) {
+            container.innerHTML = '<p style="padding: 1rem;">Нет приёмов.</p>';
+        } else {
+            container.innerHTML = data.map(apt => `
+                <div class="record-card">
+                    <div class="record-title">
+                        <span>Приём #${apt.id}</span>
+                        <span class="status-${apt.status === 'completed' ? 'active' : (apt.status === 'cancelled' ? 'inactive' : 'active')}" style="background:#e8f0fe; padding:0.2rem 0.8rem; border-radius:2rem;">${apt.status}</span>
+                    </div>
+                    <div><strong>Пациент:</strong> ${apt.patient_id} | <strong>Врач:</strong> ${apt.doctor_id}</div>
+                    <div><strong>Дата:</strong> ${apt.appointment_date} ${apt.appointment_time}</div>
+                    <div><strong>Причина:</strong> ${apt.reason}</div>
+                </div>
+            `).join('');
+        }
+        document.getElementById('prevBtn').disabled = (currentSkip === 0);
+        document.getElementById('nextBtn').disabled = (data.length < limit);
+        document.getElementById('pageInfo').innerText = `Страница ${currentSkip/limit + 1}`;
+    }
+
+    document.getElementById('appointmentForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target));
+        const resp = await fetch('/api/medical/appointments', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (resp.ok) {
+            alert('✅ Приём создан');
+            currentSkip = 0;
+            loadAppointments();
+            e.target.reset();
+        } else {
+            alert('❌ Ошибка');
+        }
+    });
+
+    document.getElementById('prevBtn').onclick = () => { if (currentSkip >= limit) { currentSkip -= limit; loadAppointments(); } };
+    document.getElementById('nextBtn').onclick = () => { currentSkip += limit; loadAppointments(); };
+    loadAppointments();
+</script>
+</body>
+</html>

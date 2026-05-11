@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход — Healthcare MVP</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="card" style="max-width: 480px;">
+    <div class="card-header">
+        <h2>🏥 Добро пожаловать</h2>
+        <p>Войдите в медицинскую систему</p>
+    </div>
+    <div class="card-body">
+        <form id="loginForm">
+            <div class="form-group">
+                <label>Имя пользователя</label>
+                <input type="text" name="username" placeholder="doctor / patient / admin" required>
+            </div>
+            <div class="form-group">
+                <label>Пароль</label>
+                <input type="password" name="password" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Войти</button>
+        </form>
+        <div id="error" style="margin-top: 1rem; color:#e11d48; font-size:0.9rem;"></div>
+        <p style="margin-top: 1.5rem; text-align: center;">Нет аккаунта? <a href="/register" style="color:#4f46e5;">Зарегистрироваться</a></p>
+    </div>
+</div>
+<script>
+    const form = document.getElementById('loginForm');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(form));
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        if (res.ok) {
+            const { access_token } = await res.json();
+            localStorage.setItem('access_token', access_token);
+            window.location.href = '/dashboard';
+        } else {
+            const err = await res.json();
+            document.getElementById('error').innerText = err.detail || 'Ошибка входа';
+        }
+    });
+</script>
+</body>
+</html>

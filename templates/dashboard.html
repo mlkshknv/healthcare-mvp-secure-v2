@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="UTF-8"><link rel="stylesheet" href="/static/style.css"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Healthcare MVP</title><link rel="stylesheet" href="/static/css/style.css"></head>
+<body>
+<div class="card">
+    <div class="card-header">
+        <h2>Здравствуйте, <span id="username"></span></h2>
+        <p>Роль: <strong id="role"></strong> • Добро пожаловать в медицинскую систему</p>
+    </div>
+    <div class="card-body">
+        <div id="dashboardLinks" style="display: flex; flex-direction: column; gap: 12px; max-width: 320px;"></div>
+        <button id="logoutBtn" class="btn btn-danger" style="margin-top: 2rem;">Выйти</button>
+    </div>
+</div>
+<script>
+    const token = localStorage.getItem('access_token');
+    if (!token) window.location.href = '/login';
+    let payload = null;
+    try {
+        payload = JSON.parse(atob(token.split('.')[1]));
+    } catch(e) { window.location.href = '/login'; }
+    
+    document.getElementById('username').innerText = payload.sub;
+    document.getElementById('role').innerText = payload.role;
+    
+    const container = document.getElementById('dashboardLinks');
+    let links = [];
+    
+    if (payload.role === 'patient') {
+        links = [
+            { text: '📅 Мои приёмы', url: '/appointments' },
+            { text: '📋 Мои назначения', url: '/records' }
+        ];
+    } else if (payload.role === 'doctor') {
+        links = [
+            { text: '📅 Приёмы', url: '/appointments' },
+            { text: '📋 Назначения', url: '/records' },
+            { text: '📊 Отчёт по пациенту', url: '/report' }
+        ];
+    } else if (payload.role === 'admin') {
+        links = [
+            { text: '📅 Все приёмы', url: '/appointments' },
+            { text: '📋 Все назначения', url: '/records' },
+            { text: '📊 Отчёт по пациенту', url: '/report' },
+            { text: '👥 Управление пользователями', url: '/users' }
+        ];
+    }
+    
+    container.innerHTML = links.map(link => `<a href="${link.url}" class="btn btn-outline" style="text-align:center;">${link.text}</a>`).join('');
+    
+    document.getElementById('logoutBtn').onclick = () => {
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+    };
+</script>
+</body>
+</html>

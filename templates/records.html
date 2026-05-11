@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Назначения — Healthcare MVP</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="card">
+    <div class="card-header">
+        <h2>📋 Медицинские назначения</h2>
+        <p>Диагнозы, лечение, рецепты</p>
+    </div>
+    <div class="card-body">
+        <!-- Форма создания (только для врача/админа) -->
+        <div id="createSection" style="display: none; margin-bottom: 32px;">
+            <div style="background: #f4faf5; border-radius: 24px; padding: 20px;">
+                <h3 style="margin-bottom: 16px; color: #1e4a2f;">➕ Новое назначение</h3>
+                <form id="recordForm">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group"><label>ID пациента</label><input type="number" name="patient_id" required></div>
+                        <div class="form-group"><label>ID врача</label><input type="number" name="doctor_id" required></div>
+                    </div>
+                    <div class="form-group"><label>Диагноз</label><input type="text" name="diagnosis" required></div>
+                    <div class="form-group"><label>Лечение</label><textarea name="treatment" rows="2" required></textarea></div>
+                    <div class="form-group"><label>Рецепт (необязательно)</label><textarea name="prescription" rows="2"></textarea></div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Контейнер для карточек назначений -->
+        <div id="recordsContainer" style="display: flex; flex-direction: column; gap: 16px;"></div>
+
+        <!-- Пагинация -->
+        <div class="pagination">
+            <button id="prevBtn" disabled>← Назад</button>
+            <span class="current-page" id="pageInfo">Страница 1</span>
+            <button id="nextBtn">Вперёд →</button>
+        </div>
+
+        <div style="margin-top: 24px;"><a href="/dashboard" class="btn btn-outline">← На главную</a></div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('access_token');
+    if (!token) window.location.href = '/login';
+
+    let currentSkip = 0;
+    const limit = 5;
+    let payload = null;
+    try {
+        payload = JSON.parse(atob(token.split('.')[1]));
+    } catch(e) { window.location.href = '/login'; }
+
+    // Показать форму, если роль doctor или admin
+    if (payload && (payload.role === 'doctor' || payload.role === 'admin')) {
+        document.getElementById('createSection').style.display = 'block';
+    }
+
+    async function loadRecords() {
+        const url = `/api/medical/records?skip=${currentSkip}&limit=${limit}`;
+        const resp = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await resp.json();
+        const container = document.getElementById('recordsContainer');
+        if (!Array.isArray(data)) return;
+        if (data.length === 0 && currentSkip === 0) {
+            container.innerHTML = '<p style="padding: 20px;">Нет назначений.</p>';
+        } else {
+            container.innerHTML = data.map(rec => `
+                <div class="record-card">
+                    <div class="record-title">
+                        <span>📄 Назначение #${rec.id}</span>
+                        <span style="background: #e8f0fe; padding: 4px 12px; border-radius: 30px; font-size: 0.8rem;">${new Date(rec.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <div><strong>Пациент:</strong> ${rec.patient_id} | <strong>Врач:</strong> ${rec.doctor_id}</div>
+                    <div><strong>Диагноз:</strong> ${rec.diagnosis}</div>
+                    <div><strong>Лечение:</strong> ${rec.treatment}</div>
+                    <div><strong>Рецепт:</strong> ${rec.prescription || '—'}</div>
+                </div>
+            `).join('');
+        }
+        document.getElementById('prevBtn').disabled = (currentSkip === 0);
+        document.getElementById('nextBtn').disabled = (data.length < limit);
+        document.getElementById('pageInfo').innerText = `Страница ${Math.floor(currentSkip/limit) + 1}`;
+    }
+
+    // Создание назначения
+    const form = document.getElementById('recordForm');
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(form));
+            // если prescription пустая — удалим или оставим как null
+            if (!data.prescription) data.prescription = null;
+            const resp = await fetch('/api/medical/records', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            if (resp.ok) {
+                alert('✅ Назначение создано');
+                currentSkip = 0;
+                loadRecords();
+                form.reset();
+            } else {
+                alert('❌ Ошибка создания');
+            }
+        });
+    }
+
+    // Пагинация
+    document.getElementById('prevBtn').onclick = () => {
+        if (currentSkip >= limit) {
+            currentSkip -= limit;
+            loadRecords();
+        }
+    };
+    document.getElementById('nextBtn').onclick = () => {
+        currentSkip += limit;
+        loadRecords();
+    };
+
+    loadRecords();
+</script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление пользователями — Healthcare MVP</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="card">
+    <div class="card-header">
+        <h2>👥 Управление пользователями</h2>
+        <p>Активация / деактивация учётных записей</p>
+    </div>
+    <div class="card-body">
+        <div id="alert" class="alert" style="display:none;"></div>
+        <div id="loading">Загрузка...</div>
+        <div id="usersTableContainer" style="display:none;">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr><th>ID</th><th>Имя пользователя</th><th>Email</th><th>Роль</th><th>Статус</th><th>Действия</th></tr>
+                    </thead>
+                    <tbody id="usersTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div style="margin-top: 24px;"><a href="/dashboard" class="btn btn-outline">← На главную</a></div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('access_token');
+    if (!token) window.location.href = '/login';
+
+    let payload = null;
+    try {
+        payload = JSON.parse(atob(token.split('.')[1]));
+    } catch(e) { window.location.href = '/login'; }
+    if (!payload || payload.role !== 'admin') {
+        alert('Доступ запрещён. Только для администратора.');
+        window.location.href = '/dashboard';
+    }
+
+    async function fetchUsers() {
+        const response = await fetch('/api/medical/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Ошибка загрузки');
+        return await response.json();
+    }
+
+    async function changeUserStatus(userId, activate) {
+        const endpoint = activate ? `/api/medical/users/${userId}/activate` : `/api/medical/users/${userId}/deactivate`;
+        const response = await fetch(endpoint, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+            showMessage(activate ? '✅ Пользователь активирован' : '✅ Пользователь деактивирован', 'success');
+            loadUsers(); // обновляем таблицу
+        } else {
+            const err = await response.json();
+            showMessage('❌ Ошибка: ' + (err.detail || 'Неизвестная ошибка'), 'error');
+        }
+    }
+
+    function showMessage(msg, type) {
+        const alertDiv = document.getElementById('alert');
+        alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'error'}`;
+        alertDiv.innerText = msg;
+        alertDiv.style.display = 'block';
+        setTimeout(() => alertDiv.style.display = 'none', 3000);
+    }
+
+    async function loadUsers() {
+        try {
+            const users = await fetchUsers();
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+            users.forEach(user => {
+                const row = tbody.insertRow();
+                row.insertCell(0).innerText = user.id;
+                row.insertCell(1).innerText = user.username;
+                row.insertCell(2).innerText = user.email;
+                row.insertCell(3).innerText = user.role;
+                const statusCell = row.insertCell(4);
+                statusCell.innerHTML = user.is_active ? '<span class="status-active">Активен</span>' : '<span class="status-inactive">Деактивирован</span>';
+                const actionCell = row.insertCell(5);
+                if (user.is_active) {
+                    const btn = document.createElement('button');
+                    btn.innerText = 'Деактивировать';
+                    btn.className = 'btn btn-danger';
+                    btn.style.padding = '4px 12px';
+                    btn.onclick = () => changeUserStatus(user.id, false);
+                    actionCell.appendChild(btn);
+                } else {
+                    const btn = document.createElement('button');
+                    btn.innerText = 'Активировать';
+                    btn.className = 'btn btn-success';
+                    btn.style.padding = '4px 12px';
+                    btn.onclick = () => changeUserStatus(user.id, true);
+                    actionCell.appendChild(btn);
+                }
+            });
+            document.getElementById('usersTableContainer').style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        } catch (err) {
+            document.getElementById('loading').innerText = 'Ошибка загрузки пользователей';
+        }
+    }
+
+    loadUsers();
+</script>
+</body>
+</html>
