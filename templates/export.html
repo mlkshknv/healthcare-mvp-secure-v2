@@ -3,20 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Экспорт данных - Healthcare MVP</title>
+    <title>Экспорт CSV — Healthcare MVP</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <div class="card">
     <div class="card-header">
         <h2>📁 Экспорт CSV</h2>
-        <p>Скачать все приёмы в формате CSV</p>
+        <p>Скачать список всех приёмов (только администратор)</p>
     </div>
     <div class="card-body">
-        <p>Нажмите на кнопку, чтобы скачать файл <strong>appointments.csv</strong> со списком всех приёмов.</p>
-        <a href="/api/medical/export/csv" class="btn btn-primary" download>📥 Скачать CSV</a>
+        <button id="exportBtn" class="btn btn-primary">📥 Скачать CSV</button>
         <div style="margin-top: 20px;"><a href="/dashboard" class="btn btn-outline">← На главную</a></div>
     </div>
 </div>
+<script>
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+        alert('Вы не авторизованы');
+        window.location.href = '/login';
+    }
+
+    document.getElementById('exportBtn').onclick = async () => {
+        const response = await fetch('/api/medical/export/csv', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'appointments.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } else {
+            alert('❌ Ошибка при скачивании: ' + response.status);
+        }
+    };
+</script>
 </body>
 </html>
